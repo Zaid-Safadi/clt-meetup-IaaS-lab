@@ -1,0 +1,51 @@
+﻿{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "newStorageAccountName": {
+      "value": "iaascltmeetup"
+    },
+    "vmName": {
+      "value": "cawadscvm07"
+    },
+    "adminUserName": {
+      "value": "zaidsafadi"
+    },
+    "dnsName": {
+      "value": "iaascltmeetup"
+    },
+    "vmSize": {
+      "value": "Standard_A3"
+    },
+    "adminPassword": {
+      "value": "Welcome2Azure"
+    },
+    "webdeploypkg": {
+      "value": "https://github.com/Azure/azure-quickstart-templates/raw/master/201-web-app-vm-dsc/WebApplication3.zip"
+    },
+    "configurationFunction": {
+      "value": "ConfigureWebServer.ps1\\Main"
+    },
+    "DatabaseServerName": {
+      "value": "iaascltmeetup"
+    },
+    "DatabaseServerLocation": {
+      "value": "westus"
+    },
+    "databaseServerAdminLogin": {
+      "value": "zaidsfadi"
+    },
+    "databaseServerAdminLoginPassword": {
+      "value": "Welcome2Azure"
+    },
+    "databaseName": {
+      "value": "cawadb07"
+    },
+    "modulesUrl": {
+      "value": "https://github.com/Azure/azure-quickstart-templates/raw/master/201-web-app-vm-dsc/ConfigureWebServer.ps1.zip"
+    },
+      "databaseEdition": {
+          "value": "Basic"
+      }
+  }
+}

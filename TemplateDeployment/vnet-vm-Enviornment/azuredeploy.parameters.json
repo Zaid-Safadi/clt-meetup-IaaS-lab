@@ -1,0 +1,24 @@
+﻿{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "webapp-vmName": {
+            "value": "webapp-vm"
+        },
+        "webapp-vmAdminUserName": {
+            "value": "zaidsafadi"
+        },
+        "webapp-vmAdminPassword": {
+            "value": "Welcome2Azure"
+        },
+        "sqldb-vmName": {
+            "value": "sqldb-vm"
+        },
+        "sqldb-vmAdminUserName": {
+            "value": "zaidsafadi"
+        },
+        "sqldb-vmAdminPassword": {
+            "value": "Welcome2Azure"
+        }
+    }
+}

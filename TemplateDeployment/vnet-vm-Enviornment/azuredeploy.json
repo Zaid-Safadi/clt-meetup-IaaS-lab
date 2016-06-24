@@ -1,0 +1,378 @@
+﻿{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "newvmstorageType": {
+            "type": "string",
+            "defaultValue": "Standard_LRS",
+            "allowedValues": [
+                "Standard_LRS",
+                "Standard_ZRS",
+                "Standard_GRS",
+                "Standard_RAGRS",
+                "Premium_LRS"
+            ]
+        },
+        "webapp-vmName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "webapp-vmAdminUserName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "webapp-vmAdminPassword": {
+            "type": "securestring"
+        },
+        "webapp-vmWindowsOSVersion": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "allowedValues": [
+                "2008-R2-SP1",
+                "2012-Datacenter",
+                "2012-R2-Datacenter",
+                "Windows-Server-Technical-Preview"
+            ]
+        },
+        "sqldb-vmName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "sqldb-vmAdminUserName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "sqldb-vmAdminPassword": {
+            "type": "securestring"
+        },
+        "sqldb-vmWindowsOSVersion": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "allowedValues": [
+                "2008-R2-SP1",
+                "2012-Datacenter",
+                "2012-R2-Datacenter",
+                "Windows-Server-Technical-Preview"
+            ]
+        }
+    },
+  "variables": {
+    "api-version": "2015-06-15",
+
+    "BackendNSGName": "Backend-nsg",
+    "FrontNSGName": "Frontend-nsg",
+
+    "cltmeetup-vnetPrefix": "192.168.0.0/16",
+    "cltmeetup-vnetBackendName": "Backend",
+    "cltmeetup-vnetBackendSubnetPrefix": "192.168.0.0/24",
+    "cltmeetup-vnetFrontendName": "Frontend",
+    "cltmeetup-vnetFrontendSubnetPrefix": "192.168.1.0/24",
+    "newvmstorageName": "[concat('labvhds', uniqueString(resourceGroup().id))]",
+    "webapp-vmImagePublisher": "MicrosoftWindowsServer",
+    "webapp-vmImageOffer": "WindowsServer",
+    "webapp-vmOSDiskName": "webapp-vmOSDisk",
+    "webapp-vmVmSize": "Standard_D1",
+    "webapp-vmVnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'cltmeetup-vnet')]",
+    "webapp-vmSubnetRef": "[concat(variables('webapp-vmVnetID'), '/subnets/', variables('cltmeetup-vnetBackendName'))]",
+    "webapp-vmStorageAccountContainerName": "vhds",
+    "webapp-vmNicName": "[concat(parameters('webapp-vmName'), 'NetworkInterface')]",
+    "sqldb-vmImagePublisher": "MicrosoftWindowsServer",
+    "sqldb-vmImageOffer": "WindowsServer",
+    "sqldb-vmOSDiskName": "sqldb-vmOSDisk",
+    "sqldb-vmVmSize": "Standard_D1",
+    "sqldb-vmVnetID": "[resourceId('Microsoft.Network/virtualNetworks', 'cltmeetup-vnet')]",
+    "sqldb-vmSubnetRef": "[concat(variables('sqldb-vmVnetID'), '/subnets/', variables('cltmeetup-vnetFrontendName'))]",
+    "sqldb-vmStorageAccountContainerName": "vhds",
+    "sqldb-vmNicName": "[concat(parameters('sqldb-vmName'), 'NetworkInterface')]"
+  },
+  "resources": [
+    {
+      "apiVersion": "[variables('api-version')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[variables('BackendNSGName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "Allow_FE",
+            "properties": {
+              "description": "Allow FE Subnet",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[variables('cltmeetup-vnetFrontendSubnetPrefix')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Block_RDP_Internet",
+            "properties": {
+              "description": "Block RDP",
+              "protocol": "tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "3389",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Deny",
+              "priority": 101,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "Block_Internet_Outbound",
+            "properties": {
+              "description": "Block Internet",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "Internet",
+              "access": "Deny",
+              "priority": 200,
+              "direction": "Outbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "[variables('api-version')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[variables('FrontNSGName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "rdp_rule",
+            "properties": {
+              "description": "Allow RDP",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "3389",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "web_rule",
+            "properties": {
+              "description": "Allow WEB",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 101,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "cltmeetup-vnet",
+      "type": "Microsoft.Network/virtualNetworks",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+          "[concat('Microsoft.Network/networkSecurityGroups/', variables('BackendNSGName'))]",
+          "[concat('Microsoft.Network/networkSecurityGroups/', variables('FrontNSGName'))]"
+
+      ],
+      "tags": {
+        "displayName": "cltmeetup-vnet"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('cltmeetup-vnetPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('cltmeetup-vnetBackendName')]",
+            "properties": {
+              "addressPrefix": "[variables('cltmeetup-vnetBackendSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('BackendNSGName'))]"
+              }
+            }
+          },
+          {
+            "name": "[variables('cltmeetup-vnetFrontendName')]",
+            "properties": {
+              "addressPrefix": "[variables('cltmeetup-vnetFrontendSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('FrontNSGName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('newvmstorageName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [ ],
+      "tags": {
+        "displayName": "newvmstorage"
+      },
+      "properties": {
+        "accountType": "[parameters('newvmstorageType')]"
+      }
+    },
+    {
+      "name": "[variables('webapp-vmNicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', 'cltmeetup-vnet')]"
+      ],
+      "tags": {
+        "displayName": "webapp-vmNic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('webapp-vmSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('webapp-vmName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('newvmstorageName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('webapp-vmNicName'))]"
+      ],
+      "tags": {
+        "displayName": "webapp-vm"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('webapp-vmVmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('webapp-vmName')]",
+          "adminUsername": "[parameters('webapp-vmAdminUsername')]",
+          "adminPassword": "[parameters('webapp-vmAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('webapp-vmImagePublisher')]",
+            "offer": "[variables('webapp-vmImageOffer')]",
+            "sku": "[parameters('webapp-vmWindowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "webapp-vmOSDisk",
+            "vhd": {
+              "uri": "[concat('http://', variables('newvmstorageName'), '.blob.core.windows.net/', variables('webapp-vmStorageAccountContainerName'), '/', variables('webapp-vmOSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('webapp-vmNicName'))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "[variables('sqldb-vmNicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', 'cltmeetup-vnet')]"
+      ],
+      "tags": {
+        "displayName": "sqldb-vmNic"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('sqldb-vmSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('sqldb-vmName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('newvmstorageName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('sqldb-vmNicName'))]"
+      ],
+      "tags": {
+        "displayName": "sqldb-vm"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('sqldb-vmVmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('sqldb-vmName')]",
+          "adminUsername": "[parameters('sqldb-vmAdminUsername')]",
+          "adminPassword": "[parameters('sqldb-vmAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('sqldb-vmImagePublisher')]",
+            "offer": "[variables('sqldb-vmImageOffer')]",
+            "sku": "[parameters('sqldb-vmWindowsOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "sqldb-vmOSDisk",
+            "vhd": {
+              "uri": "[concat('http://', variables('newvmstorageName'), '.blob.core.windows.net/', variables('sqldb-vmStorageAccountContainerName'), '/', variables('sqldb-vmOSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('sqldb-vmNicName'))]"
+            }
+          ]
+        }
+      }
+    }
+  ],
+    "outputs": {
+    }
+}
